@@ -1,6 +1,6 @@
 function [PLEL,PREL,PLNR,PRNR,SNRL,SNRR,SNRiL,SNRiR,SNRoL,SNRoR] = ...
-    calcELNR(e1L,e1R,e2L,e2R,imaskL,imaskR,q,NFFT,WINDOW,NOVERLAP,Xalone,labelvec)
-% calcELNR - tinh EL/NR va SNR, luu file WAV va hien thi waveform/spectrogram
+    calcELNR(e1L,e1R,e2L,e2R,imaskL,imaskR,q,NFFT,WINDOW,NOVERLAP,Xalone, labelvec)
+% calcELNR - tính EL/NR và SNR, l?u file WAV và hi?n th? waveform/spectrogram
 % Compatible MATLAB 2016
 % input:
 %   e1L,e1R,e2L,e2R : cell masks
@@ -8,24 +8,24 @@ function [PLEL,PREL,PLNR,PRNR,SNRL,SNRR,SNRiL,SNRiR,SNRoL,SNRoR] = ...
 %   q               : mapping vector
 %   NFFT, WINDOW, NOVERLAP : STFT params
 %   Xalone          : ground truth standalone signals (2 x T x N)
-%   labelvec        : optional nhan nguon (cell)
+%   labelvec        : optional nhãn ngu?n (cell)
 %
-% outputs: cac chi so (mang)
+% outputs: các ch? s? (m?ng)
 
-% doc microphone mix
+% ??c microphone mix
 [wholesig, Fs] = audioread('stereomix.wav');
 if size(wholesig,2) == 1
     wholesig = [wholesig, zeros(size(wholesig))];
 end
 
-% neu co remaining & ideal files, doc (neu khong, bo qua)
+% n?u có remaining & ideal files, ??c (n?u không, b? qua)
 hasRemaining = exist('remaining.wav','file') == 2;
 if hasRemaining
     [remsig, Fs_rem] = audioread('remaining.wav');
     if Fs_rem ~= Fs, remsig = resample(remsig, Fs, Fs_rem); end
 end
 
-% tinh STFT-like spectrogram matrices (sg expects column vector)
+% compute STFT-like spectrogram matrices (sg expects column vector)
 ywholeL = sg(wholesig(:,1), NFFT, Fs, WINDOW, NOVERLAP);
 ywholeR = sg(wholesig(:,2), NFFT, Fs, WINDOW, NOVERLAP);
 
@@ -38,15 +38,15 @@ SNRiL = zeros(1,numOutputs); SNRiR = zeros(1,numOutputs);
 SNRoL = zeros(1,numOutputs); SNRoR = zeros(1,numOutputs);
 
 for i=1:numOutputs
-    % lay output file neu co
+    % l?y output file n?u có
     outname = sprintf('finalstereo%d.wav', i);
     if exist(outname,'file')==2
         [O_n, Fs_o] = audioread(outname);
         if Fs_o ~= Fs, O_n = resample(O_n, Fs, Fs_o); end
         if size(O_n,2)==1, O_n = [O_n, zeros(size(O_n))]; end
     else
-        % Neu khong co file, tai tao tu mask (neu co) hoac dung zeros
-        % Tao tin hieu bang invspecgram tu mask (neu e1L/e1R ton tai)
+        % N?u không có file, tái t?o t? mask (n?u có) ho?c dùng zeros
+        % T?o tín hi?u b?ng invspecgram t? mask (n?u e1L/e1R t?n t?i)
         try
             speL = ywholeL .* e1L{i};
             speR = ywholeR .* e1R{i};
@@ -75,7 +75,7 @@ for i=1:numOutputs
     whL    = invspecgram(ywholeL, NFFT, Fs, WINDOW, NOVERLAP);
     whR    = invspecgram(ywholeR, NFFT, Fs, WINDOW, NOVERLAP);
 
-    % tranh chia cho 0
+    % tránh chia cho 0
     if sum(IL_n.^2)==0, IL_n = IL_n + eps; end
     if sum(IR_n.^2)==0, IR_n = IR_n + eps; end
     if sum(O_n(:,1).^2)==0, O_n(:,1)=O_n(:,1)+eps; end
