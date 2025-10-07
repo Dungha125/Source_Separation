@@ -42,8 +42,12 @@ All codes is copyrighted by its own author. The codes from me are licensed GNU/L
 Run `main.m` to get the demo. You can change the input file by your own data. 
 
 ================================
-Thay các file trong main.m
-Từ dòng 60 -> 71:
+To use your own audio files, you need to modify the main.m script. Navigate to lines 60-71 and replace the provided .wav filenames with your own.
+
+Original Code:
+
+Matlab
+
 if evalu %%%read source signals signals
     s=[];
     [s(:,1),fs]=audioread('ukma.wav');%A
@@ -58,5 +62,7 @@ if evalu %%%read source signals signals
     [s(:,10),fs]=audioread('esma.wav');%J
     [s(:,11),fs]=audioread('dkma.wav');%K
     [s(:,12),fs]=audioread('ukfe.wav');%L
+Instruction:
 
-thay vào các file .wav
+Replace the audioread calls with your own .wav files. Ensure they are in the same directory as the script.
+
