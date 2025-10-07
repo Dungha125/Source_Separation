@@ -1,159 +1,189 @@
-function [PLEL,PREL,PLNR,PRNR,SNRL,SNRR,SNRiL,SNRiR,SNRoL,SNRoR]=calcELNR(e1L,e1R,e2L,e2R,imaskL,imaskR,q,NFFT,WINDOW,NOVERLAP,Xalone,labelvec,energypercentageL,energypercentageR)
+function [PLEL,PREL,PLNR,PRNR,SNRL,SNRR,SNRiL,SNRiR,SNRoL,SNRoR] = ...
+    calcELNR(e1L,e1R,e2L,e2R,imaskL,imaskR,q,NFFT,WINDOW,NOVERLAP,Xalone,labelvec)
+% calcELNR - tinh EL/NR va SNR, luu file WAV va hien thi waveform/spectrogram
+% Compatible MATLAB 2016
+% input:
+%   e1L,e1R,e2L,e2R : cell masks
+%   imaskL,imaskR   : ideal masks
+%   q               : mapping vector
+%   NFFT, WINDOW, NOVERLAP : STFT params
+%   Xalone          : ground truth standalone signals (2 x T x N)
+%   labelvec        : optional nhan nguon (cell)
+%
+% outputs: cac chi so (mang)
+
+% doc microphone mix
 [wholesig, Fs] = audioread('stereomix.wav');
-if(nargin==11)
-    mus=0;
-else
-    mus=1;
+if size(wholesig,2) == 1
+    wholesig = [wholesig, zeros(size(wholesig))];
 end
-if(mus)
-    [remsig,Fs]=audioread('remaining.wav');
-    for i=1:size(Xalone,3)
-        str=strcat('ideal',int2str(i),'.wav');
-        [idX,Fs]=audioread(str);
-        idealX(:,:,i)=idX';
-    end
+
+% neu co remaining & ideal files, doc (neu khong, bo qua)
+hasRemaining = exist('remaining.wav','file') == 2;
+if hasRemaining
+    [remsig, Fs_rem] = audioread('remaining.wav');
+    if Fs_rem ~= Fs, remsig = resample(remsig, Fs, Fs_rem); end
 end
-ywholeL=sg(wholesig(:,1),NFFT,Fs,WINDOW,NOVERLAP);
-ywholeR=sg(wholesig(:,2),NFFT,Fs,WINDOW,NOVERLAP);
-for i=1:length(e1L)
-    i
-    str=strcat('finalstereo',int2str(i),'.wav');
-    [O_n,Fs]=audioread(str);
-    spe1L=ywholeL.*e1L{i};
-    spe1R=ywholeR.*e1R{i};
-    spe2L=ywholeL.*e2L{i};
-    spe2R=ywholeR.*e2R{i};
-    spIL_n=ywholeL.*imaskL{q(i)};
-    spIR_n=ywholeR.*imaskR{q(i)};
-    e1L_n=invspecgram(spe1L,NFFT,Fs, (WINDOW),NOVERLAP);
-    e1R_n=invspecgram(spe1R,NFFT,Fs, (WINDOW),NOVERLAP);
-    e2L_n=invspecgram(spe2L,NFFT,Fs, (WINDOW),NOVERLAP);
-    e2R_n=invspecgram(spe2R,NFFT,Fs, (WINDOW),NOVERLAP);
-    IL_n=invspecgram(spIL_n,NFFT,Fs, (WINDOW),NOVERLAP);
-    IR_n=invspecgram(spIR_n,NFFT,Fs, (WINDOW),NOVERLAP);
-    whL=invspecgram(ywholeL,NFFT,Fs, (WINDOW),NOVERLAP);
-    whR=invspecgram(ywholeR,NFFT,Fs, (WINDOW),NOVERLAP);
-    PLEL(i)=sum(e1L_n.^2)/sum(IL_n.^2);
-    PREL(i)=sum(e1R_n.^2)/sum(IR_n.^2);
-    PLNR(i)=sum(e2L_n.^2)/sum(O_n(:,1).^2);
-    PRNR(i)=sum(e2R_n.^2)/sum(O_n(:,2).^2);
-    SNRL(i)=10*log10(sum(IL_n.^2)/sum((IL_n-O_n(:,1)).^2));
-    SNRR(i)=10*log10(sum(IR_n.^2)/sum((IR_n-O_n(:,2)).^2));
-    SNRiL(i)=10*log10(sum(IL_n.^2)/sum((IL_n-whL).^2));
-    SNRiR(i)=10*log10(sum(IR_n.^2)/sum((IR_n-whR).^2));
-    XA1=Xalone(1,:,q(i));
-    XA2=Xalone(2,:,q(i));
-    minlength=min(length(O_n),length(XA1));
-    XA1=XA1(:,1:minlength);%%adjust lengths
-    XA2=XA2(:,1:minlength);%%adjust lengths
-    O_n=O_n(1:minlength,:);%%adjust lengths
-    XA1=XA1/(sqrt(var(XA1)));
-    XA2=XA2/(sqrt(var(XA2)));
-    On1=O_n(:,1)/sqrt(var(O_n(:,1)));
-    On2=O_n(:,2)/sqrt(var(O_n(:,2)));
-    
-    SNRoL(i)=10*log10(sum(On1.^2)/sum((XA1'-On1).^2));
-    SNRoR(i)=10*log10(sum(On2.^2)/sum((XA2'-On2).^2));
-    if(mus)
-        ylabelvec{i}=strcat('Output ',num2str(i));
-        for j=1:size(Xalone,3)
-            xcoL(i,j)=abs(xcorr(On1,Xalone(1,1:minlength,j),0,'coeff'));
-            xcoR(i,j)=abs(xcorr(On2,Xalone(2,1:minlength,j),0,'coeff'));
-            if i==length(e1L)
-                xcoL(i+1,j)=abs(xcorr(remsig(1:minlength,1)',Xalone(1,1:minlength,j),0,'coeff'));
-                xcoR(i+1,j)=abs(xcorr(remsig(1:minlength,2)',Xalone(2,1:minlength,j),0,'coeff'));
-                if isnan(xcoL(i+1,j))
-                    xcoL(i+1,j)=0;
-                end
-                if isnan(xcoR(i+1,j))
-                    xcoR(i+1,j)=0;
-                end
-            end
-            if isnan(xcoL(i,j))
-                xcoL(i,j)=0;
-            end
-            if isnan(xcoR(i,j))
-                xcoR(i,j)=0;
-            end
-        end
-        for j=1:size(Xalone,3)
-            xcoLI(i,j)=abs(xcorr(On1,idealX(1,1:minlength,j),0,'coeff'));
-            xcoRI(i,j)=abs(xcorr(On2,idealX(2,1:minlength,j),0,'coeff'));
-            if i==length(e1L)
-                xcoLI(i+1,j)=abs(xcorr(remsig(1:minlength,1)',idealX(1,1:minlength,j),0,'coeff'));
-                xcoRI(i+1,j)=abs(xcorr(remsig(1:minlength,2)',idealX(2,1:minlength,j),0,'coeff'));
-                if isnan(xcoLI(i+1,j))
-                    xcoLI(i+1,j)=0;
-                end
-                if isnan(xcoRI(i+1,j))
-                    xcoRI(i+1,j)=0;
-                end
-            end
-            if isnan(xcoLI(i,j))
-                xcoLI(i,j)=0;
-            end
-            if isnan(xcoRI(i,j))
-                xcoRI(i,j)=0;
-            end
+
+% tinh STFT-like spectrogram matrices (sg expects column vector)
+ywholeL = sg(wholesig(:,1), NFFT, Fs, WINDOW, NOVERLAP);
+ywholeR = sg(wholesig(:,2), NFFT, Fs, WINDOW, NOVERLAP);
+
+numOutputs = length(e1L);
+% initialize outputs
+PLEL = zeros(1,numOutputs); PREL = zeros(1,numOutputs);
+PLNR = zeros(1,numOutputs); PRNR = zeros(1,numOutputs);
+SNRL = zeros(1,numOutputs); SNRR = zeros(1,numOutputs);
+SNRiL = zeros(1,numOutputs); SNRiR = zeros(1,numOutputs);
+SNRoL = zeros(1,numOutputs); SNRoR = zeros(1,numOutputs);
+
+for i=1:numOutputs
+    % lay output file neu co
+    outname = sprintf('finalstereo%d.wav', i);
+    if exist(outname,'file')==2
+        [O_n, Fs_o] = audioread(outname);
+        if Fs_o ~= Fs, O_n = resample(O_n, Fs, Fs_o); end
+        if size(O_n,2)==1, O_n = [O_n, zeros(size(O_n))]; end
+    else
+        % Neu khong co file, tai tao tu mask (neu co) hoac dung zeros
+        % Tao tin hieu bang invspecgram tu mask (neu e1L/e1R ton tai)
+        try
+            speL = ywholeL .* e1L{i};
+            speR = ywholeR .* e1R{i};
+            left = invspecgram(speL, NFFT, Fs, WINDOW, NOVERLAP);
+            right = invspecgram(speR, NFFT, Fs, WINDOW, NOVERLAP);
+            O_n = [left(:), right(:)];
+        catch
+            O_n = zeros(size(wholesig));
         end
     end
+
+    % apply masks to whole spectrogram and invert (estimated components)
+    spe1L = ywholeL .* e1L{i};
+    spe1R = ywholeR .* e1R{i};
+    spe2L = ywholeL .* e2L{i};
+    spe2R = ywholeR .* e2R{i};
+    spIL_n = ywholeL .* imaskL{q(i)};
+    spIR_n = ywholeR .* imaskR{q(i)};
+
+    e1L_n = invspecgram(spe1L, NFFT, Fs, WINDOW, NOVERLAP);
+    e1R_n = invspecgram(spe1R, NFFT, Fs, WINDOW, NOVERLAP);
+    e2L_n = invspecgram(spe2L, NFFT, Fs, WINDOW, NOVERLAP);
+    e2R_n = invspecgram(spe2R, NFFT, Fs, WINDOW, NOVERLAP);
+    IL_n   = invspecgram(spIL_n, NFFT, Fs, WINDOW, NOVERLAP);
+    IR_n   = invspecgram(spIR_n, NFFT, Fs, WINDOW, NOVERLAP);
+    whL    = invspecgram(ywholeL, NFFT, Fs, WINDOW, NOVERLAP);
+    whR    = invspecgram(ywholeR, NFFT, Fs, WINDOW, NOVERLAP);
+
+    % tranh chia cho 0
+    if sum(IL_n.^2)==0, IL_n = IL_n + eps; end
+    if sum(IR_n.^2)==0, IR_n = IR_n + eps; end
+    if sum(O_n(:,1).^2)==0, O_n(:,1)=O_n(:,1)+eps; end
+    if sum(O_n(:,2).^2)==0, O_n(:,2)=O_n(:,2)+eps; end
+
+    PLEL(i) = sum(e1L_n.^2)/sum(IL_n.^2);
+    PREL(i) = sum(e1R_n.^2)/sum(IR_n.^2);
+    PLNR(i) = sum(e2L_n.^2)/sum(O_n(:,1).^2);
+    PRNR(i) = sum(e2R_n.^2)/sum(O_n(:,2).^2);
+
+    SNRL(i) = 10*log10(sum(IL_n.^2)/sum((IL_n - O_n(:,1)).^2 + eps));
+    SNRR(i) = 10*log10(sum(IR_n.^2)/sum((IR_n - O_n(:,2)).^2 + eps));
+    SNRiL(i) = 10*log10(sum(IL_n.^2)/sum((IL_n - whL).^2 + eps));
+    SNRiR(i) = 10*log10(sum(IR_n.^2)/sum((IR_n - whR).^2 + eps));
+
+    % output vs ground-truth Xalone if provided
+    try
+        XA1 = Xalone(1,:, q(i));
+        XA2 = Xalone(2,:, q(i));
+        XA1 = XA1(:)'; XA2 = XA2(:)';
+        minlength = min([length(O_n), length(XA1)]);
+        XA1 = XA1(1:minlength); XA2 = XA2(1:minlength);
+        On1 = O_n(1:minlength,1); On2 = O_n(1:minlength,2);
+        XA1n = XA1 / (sqrt(var(XA1))+eps);
+        XA2n = XA2 / (sqrt(var(XA2))+eps);
+        On1n = On1 / (sqrt(var(On1))+eps);
+        On2n = On2 / (sqrt(var(On2))+eps);
+        SNRoL(i) = 10*log10(sum(On1n.^2)/sum((XA1n' - On1n).^2 + eps));
+        SNRoR(i) = 10*log10(sum(On2n.^2)/sum((XA2n' - On2n).^2 + eps));
+    catch
+        SNRoL(i)=NaN; SNRoR(i)=NaN;
+    end
+
+    % Keep last e1/e2/O_n for plotting/saving outside loop
+    if i==1
+        last_e1L = e1L_n; last_e1R = e1R_n;
+        last_e2L = e2L_n; last_e2R = e2R_n;
+        last_O = O_n;
+    end
 end
-if(mus)
-    ylabelvec{i+1}='Remaining';
-    ylabelvec{i+2}='% of power';
-    
-    save cordata xcoL xcoR xcoLI xcoRI labelvec ylabelvec energypercentageL energypercentageR 
 
-    % Bi?u ?? ma tr?n t??ng quan
-    figure
-    flotmatrix(xcoL,labelvec,ylabelvec,energypercentageL)
-    title('Ma tran tuong quan - trai');
+% ===============================
+% LUU FILE WAV: mic, speaker1, speaker2, separated
+% ===============================
+disp('Saving WAV files: mic.wav, speaker1.wav, speaker2.wav, separated.wav ...');
+try
+    audiowrite('mic.wav', wholesig, Fs);
+    try
+        s1 = [last_e1L(:), last_e1R(:)];
+    catch
+        s1 = zeros(size(wholesig));
+    end
+    try
+        s2 = [last_e2L(:), last_e2R(:)];
+    catch
+        s2 = zeros(size(wholesig));
+    end
+    L = size(wholesig,1);
+    if size(s1,1) < L, s1(end+1:L,1)=0; s1(end+1:L,2)=0; end
+    if size(s2,1) < L, s2(end+1:L,1)=0; s2(end+1:L,2)=0; end
+    if size(last_O,1) < L, last_O(end+1:L,1)=0; last_O(end+1:L,2)=0; end
 
-    figure
-    flotmatrix(xcoR,labelvec,ylabelvec,energypercentageR)
-    title('Ma tran tuong quan - phai');
-
-    figure
-    flotmatrix(xcoLI,labelvec,ylabelvec,energypercentageL)
-    title('Tuong quan ly tuong - trai');
-
-    figure
-    flotmatrix(xcoRI,labelvec,ylabelvec,energypercentageR)
-    title('Tuong quan ly tuong - phai');
+    audiowrite('speaker1.wav', s1(1:L,:), Fs);
+    audiowrite('speaker2.wav', s2(1:L,:), Fs);
+    audiowrite('separated.wav', last_O(1:L,:), Fs);
+    disp('Saved successfully.');
+catch ME
+    warning('Khong the luu WAV: %s', ME.message);
 end
 
-% --- Ph?n hi?n th? d?ng sóng waveform ---
-figure;
-subplot(3,1,1);
-plot(wholesig(:,1));
-title('Tin hieu ghi duoc tai microphone (Waveform)', 'FontWeight','bold');
-xlabel('Thoi gian');
-ylabel('Bien do (Amplitude)');
-grid on;
+% ===============================
+% VE WAVEFORM CHO CAC FILE
+% ===============================
+files = {'mic.wav','speaker1.wav','speaker2.wav','separated.wav'};
+titles = {'Tin hieu ghi duoc tai micro', 'Tin hieu nguoi noi thu nhat', ...
+          'Tin hieu nguoi noi thu hai', 'Tin hieu sau xu ly / tach nguon'};
 
-subplot(3,1,2);
-plot(wholesig(:,2));
-title('Tín hieu ghi duoc tai nguoi thu nhat (Waveform)', 'FontWeight','bold');
-xlabel('Thoi gian');
-ylabel('Bien do (Amplitude)');
-grid on;
-
-subplot(3,1,3);
-if exist('remsig', 'var')
-    plot(remsig(:,1));
-    title('Tin hieu con lai sau tach nguon (microphone)', 'FontWeight','bold');
-else
-    plot(wholesig(:,1) - wholesig(:,2));
-    title('Tin hieu thu duoc tai nguoi thu hai', 'FontWeight','bold');
+for i=1:length(files)
+    if exist(files{i},'file')==2
+        [y, fs_y] = audioread(files{i});
+        T = (0:size(y,1)-1)/fs_y;
+        figure('Name',titles{i},'NumberTitle','off');
+        subplot(2,1,1);
+        plot(T, y(:,1));
+        title([titles{i} ' - Kenh trai']);
+        xlabel('Thoi gian (s)'); ylabel('Bien do');
+        grid on;
+        subplot(2,1,2);
+        plot(T, y(:,2));
+        title([titles{i} ' - Kenh phai']);
+        xlabel('Thoi gian (s)'); ylabel('Bien do');
+        grid on;
+        annotation('textbox',[0 0.95 1 0.05],'String',titles{i},'EdgeColor','none','HorizontalAlignment','center','FontWeight','bold');
+    else
+        warning('File %s khong ton tai => bo qua hinh', files{i});
+    end
 end
-xlabel('Thoi gian');
-ylabel('Bien do (Amplitude)');
-grid on;
 
-% --- Thêm tiêu ?? t?ng cho figure ---
-% Vì MATLAB 2016 không có sgtitle, ta dùng annotation thay th?
-annotation('textbox', [0 0.95 1 0.05], 'String', ...
-    'Bieu do dang song cac tin hieu thu duoc', ...
-    'EdgeColor', 'none', 'HorizontalAlignment', 'center', ...
-    'FontWeight', 'bold', 'FontSize', 12);
+% ===============================
+% (Tuy chon) ve spectrogram cho separated.wav
+% ===============================
+if exist('separated.wav','file')==2
+    [ysep, fssep] = audioread('separated.wav');
+    if size(ysep,2) >= 1
+        figure('Name','Spectrogram separated (kenh trai)','NumberTitle','off');
+        specgram(ysep(:,1), 1024, fssep);
+        title('Spectrogram - separated (kenh trai)');
+    end
+end
+
 end
