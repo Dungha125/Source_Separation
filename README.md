@@ -80,3 +80,26 @@ Instruction:
 
 Replace the audioread calls with your own .wav files. Ensure they are in the same directory as the script.
 
+===============================
+
+Cải tiến Phương án 1 (branch ss/no1):
+
+- Đọc tín hiệu mix từ micro (stereomix.wav) → tính spectrogram.
+
+- Áp dụng mask (e1L, e1R, e2L, e2R, imaskL, imaskR) để tách tín hiệu người nói.
+
+- Tái tạo lại tín hiệu thời gian bằng invspecgram.
+
+- Tính các chỉ số:
+
+    PLEL, PREL, PLNR, PRNR – công suất tương đối.
+
+    SNRL, SNRR – tỉ số tín hiệu trên nhiễu.
+
+    SNRiL/SNRiR – SNR so với tín hiệu gốc.
+
+    SNRoL/SNRoR – SNR sau tách.
+
+- Lưu các file WAV: mic.wav, speaker1.wav, speaker2.wav, separated.wav.
+
+- Vẽ biểu đồ waveform (biên độ - thời gian) và spectrogram cho file đã tách.
