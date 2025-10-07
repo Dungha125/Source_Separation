@@ -103,12 +103,57 @@ if(mus)
     ylabelvec{i+2}='% of power';
     
     save cordata xcoL xcoR xcoLI xcoRI labelvec ylabelvec energypercentageL energypercentageR 
+
+    % Bi?u ?? ma tr?n t??ng quan
     figure
     flotmatrix(xcoL,labelvec,ylabelvec,energypercentageL)
+    title('Ma tran tuong quan - trai');
+
     figure
     flotmatrix(xcoR,labelvec,ylabelvec,energypercentageR)
+    title('Ma tran tuong quan - phai');
+
     figure
     flotmatrix(xcoLI,labelvec,ylabelvec,energypercentageL)
+    title('Tuong quan ly tuong - trai');
+
     figure
     flotmatrix(xcoRI,labelvec,ylabelvec,energypercentageR)
+    title('Tuong quan ly tuong - phai');
+end
+
+% --- Ph?n hi?n th? d?ng sóng waveform ---
+figure;
+subplot(3,1,1);
+plot(wholesig(:,1));
+title('Tin hieu ghi duoc tai microphone (Waveform)', 'FontWeight','bold');
+xlabel('Thoi gian');
+ylabel('Bien do (Amplitude)');
+grid on;
+
+subplot(3,1,2);
+plot(wholesig(:,2));
+title('Tín hieu ghi duoc tai nguoi thu nhat (Waveform)', 'FontWeight','bold');
+xlabel('Thoi gian');
+ylabel('Bien do (Amplitude)');
+grid on;
+
+subplot(3,1,3);
+if exist('remsig', 'var')
+    plot(remsig(:,1));
+    title('Tin hieu con lai sau tach nguon (microphone)', 'FontWeight','bold');
+else
+    plot(wholesig(:,1) - wholesig(:,2));
+    title('Tin hieu thu duoc tai nguoi thu hai', 'FontWeight','bold');
+end
+xlabel('Thoi gian');
+ylabel('Bien do (Amplitude)');
+grid on;
+
+% --- Thêm tiêu ?? t?ng cho figure ---
+% Vì MATLAB 2016 không có sgtitle, ta dùng annotation thay th?
+annotation('textbox', [0 0.95 1 0.05], 'String', ...
+    'Bieu do dang song cac tin hieu thu duoc', ...
+    'EdgeColor', 'none', 'HorizontalAlignment', 'center', ...
+    'FontWeight', 'bold', 'FontSize', 12);
 end

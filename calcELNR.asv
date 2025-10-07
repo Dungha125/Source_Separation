@@ -18,7 +18,7 @@ ywholeR=sg(wholesig(:,2),NFFT,Fs,WINDOW,NOVERLAP);
 for i=1:length(e1L)
     i
     str=strcat('finalstereo',int2str(i),'.wav');
-    [O_n,Fs]=wavread(str);
+    [O_n,Fs]=audioread(str);
     spe1L=ywholeL.*e1L{i};
     spe1R=ywholeR.*e1R{i};
     spe2L=ywholeL.*e2L{i};
@@ -103,12 +103,57 @@ if(mus)
     ylabelvec{i+2}='% of power';
     
     save cordata xcoL xcoR xcoLI xcoRI labelvec ylabelvec energypercentageL energypercentageR 
+
+    % Bi?u ?? ma tr?n t??ng quan
     figure
     flotmatrix(xcoL,labelvec,ylabelvec,energypercentageL)
+    title('Ma tran t??ng quan - trái');
+
     figure
     flotmatrix(xcoR,labelvec,ylabelvec,energypercentageR)
+    title('Ma tr?n t??ng quan - ph?i');
+
     figure
     flotmatrix(xcoLI,labelvec,ylabelvec,energypercentageL)
+    title('T??ng quan lý t??ng - trái');
+
     figure
     flotmatrix(xcoRI,labelvec,ylabelvec,energypercentageR)
+    title('T??ng quan lý t??ng - ph?i');
+end
+
+% --- Ph?n hi?n th? d?ng sóng waveform ---
+figure;
+subplot(3,1,1);
+plot(wholesig(:,1));
+title('Tín hi?u ghi ???c t?i microphone (Waveform)', 'FontWeight','bold');
+xlabel('Th?i gian');
+ylabel('Biên ?? (Amplitude)');
+grid on;
+
+subplot(3,1,2);
+plot(wholesig(:,2));
+title('Tín hi?u ghi ???c t?i ng??i th? nh?t (Waveform)', 'FontWeight','bold');
+xlabel('Th?i gian');
+ylabel('Biên ?? (Amplitude)');
+grid on;
+
+subplot(3,1,3);
+if exist('remsig', 'var')
+    plot(remsig(:,1));
+    title('Tín hi?u còn l?i sau tách ngu?n (microphone)', 'FontWeight','bold');
+else
+    plot(wholesig(:,1) - wholesig(:,2));
+    title('Tín hi?u còn l?i', 'FontWeight','bold');
+end
+xlabel('Th?i gian');
+ylabel('Biên ?? (Amplitude)');
+grid on;
+
+% --- Thêm tiêu ?? t?ng cho figure ---
+% Vì MATLAB 2016 không có sgtitle, ta dùng annotation thay th?
+annotation('textbox', [0 0.95 1 0.05], 'String', ...
+    'Bi?u ?? d?ng sóng các tín hi?u thu ???c', ...
+    'EdgeColor', 'none', 'HorizontalAlignment', 'center', ...
+    'FontWeight', 'bold', 'FontSize', 12);
 end
