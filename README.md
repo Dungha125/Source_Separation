@@ -49,19 +49,33 @@ Original Code:
 Matlab
 
 if evalu %%%read source signals signals
+
     s=[];
-    [s(:,1),fs]=audioread('ukma.wav');%A
-    [s(:,2),fs]=audioread('frma.wav');%B
-    [s(:,3),fs]=audioread('itfe.wav');%C
-    [s(:,4),fs]=audioread('cnfe.wav');%D
-    [s(:,5),fs]=audioread('rufe.wav');%E
-    [s(:,6),fs]=audioread('gema.wav');%F
-    [s(:,7),fs]=audioread('nlma.wav');%G
-    [s(:,8),fs]=audioread('jpfe.wav');%H
-    [s(:,9),fs]=audioread('brfe.wav');%I
-    [s(:,10),fs]=audioread('esma.wav');%J
-    [s(:,11),fs]=audioread('dkma.wav');%K
-    [s(:,12),fs]=audioread('ukfe.wav');%L
+	
+    [s(:,1),fs]=audioread('ukma.wav');
+	
+    [s(:,2),fs]=audioread('frma.wav');
+	
+    [s(:,3),fs]=audioread('itfe.wav');
+	
+    [s(:,4),fs]=audioread('cnfe.wav');
+	
+    [s(:,5),fs]=audioread('rufe.wav');
+	
+    [s(:,6),fs]=audioread('gema.wav');
+	
+    [s(:,7),fs]=audioread('nlma.wav');
+	
+    [s(:,8),fs]=audioread('jpfe.wav');
+	
+    [s(:,9),fs]=audioread('brfe.wav');
+	
+    [s(:,10),fs]=audioread('esma.wav');
+	
+    [s(:,11),fs]=audioread('dkma.wav');
+	
+    [s(:,12),fs]=audioread('ukfe.wav');
+	
 Instruction:
 
 Replace the audioread calls with your own .wav files. Ensure they are in the same directory as the script.
