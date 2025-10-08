@@ -1,105 +1,116 @@
-thesis-bss
-==========
-List of matlab / octave script used on master thesis by bagustris.
-The theme of thesis is binaural sound sources separation. Pdf file is available [here](https://www.dropbox.com/s/5wjsrrhxjw5oby3/bta_tesis_en_v16.pdf?dl=0).
+# 🎧 Chương trình Tách Nguồn Âm Thanh Thiếu Xác Định (Underdetermined Source Separation)
 
-In this thesis, I evaluated some common methods in binaural sound separation: ICA (with max likelihood estimation, ICA with Binary Mask (ICABM), binural model using phase difference channel weighting [4], and my-proposed-method FastICA with Binary Mask (FastICABM).
+Đây là một chương trình **MATLAB** triển khai thuật toán **tách nguồn âm thanh** (*audio source separation*) trong **điều kiện thiếu xác định**, nghĩa là **số lượng nguồn âm thanh (sources)** lớn hơn **số lượng microphone**.
 
-This is the source code for underdetermined separation of instaneous speech mixtures with FastICA and binary mask and the comparison for benchmark. 
+Trong cấu hình mặc định, chương trình **mô phỏng 3 nguồn âm thanh và sử dụng 2 microphone (stereo mix)**.
 
-The algorithm is described in
+Thuật toán hoạt động theo **phương pháp lặp lại (iterative)**, sử dụng **Phân tích Thành phần Độc lập (ICA – Independent Component Analysis)** kết hợp với **mặt nạ thời gian-tần số (Time-Frequency Masks)** và các **tiêu chí dừng dựa trên năng lượng và tính hai tai (binaural criteria)**.
 
-1. 	Michael Syskind Pedersen, DeLiang Wang, Jan Larsen and Ulrik Kjems: 
-	Two-microphone Separation of Speech Mixtures, 2006, Submitted for publication.
-2.	Michael Syskind Pedersen, DeLiang Wang, Jan Larsen and Ulrik Kjems, Overcomplete Blind Source Separation by 
-	Combining ICA and Binary Time-Frequency Masking, IEEE International workshop on Machine 
-	Learning for Signal Processing, pp. 15-20, 2005
-3.	Hyvärinen, A., Erkki, H. 2000. Independent Component Analysis: 
-	Algorithm and Applications. Neural Networks, 13(4-5):411-430, 2000
-4. 	C. Kim, K. Kumar, B. Raj, , and R. M. Stern, “Signal separation for robust
-	speech recognition based on phase difference information obtained in the fre-
-	quency domain,” INTERSPEECH, pp. 2495–2498, 2009.
+---
 
+## 🧩 1. Khởi tạo và Cấu hình (Initialization)
 
-All files should be in the same directory. 
-The algorithm is run by calling each icabm.m and fasticabm.m. 
-For ICA algorithm, it can be run directy from worskpace and for PDCW it can be obtained from the [source](http://www.cs.cmu.edu/~chanwook/MyAlgorithms/PDCW_IS2009/INTERSPEECH2009Package.zip).
+Phần này thiết lập các tham số cơ bản và cấu hình cho STFT.
 
-A number of parameters can be specified in those files.
+```matlab
+%% main.m
+% Chương trình chính: Underdetermined source separation
+% Tương thích MATLAB 2016
+clear all; close all; clc;
+format compact;
 
-- N 			: Number of sources in mixture
-- NFFT 			: DFT length
-- winnumber		: Selects window function
-- k			: Window length is NFFT/k
-- noverlapfactor	: Overlap between consecutive windows
-- th 			: Mask threshold?
-- TC1			: Merge finalstereo signals if correlation is above TC1
-- TC2	 		: Merge finalstereo and enerstereo if correlation is above TC2
-- stopthresholdini	: One source if condition number is above this value
-- thepow		: tau_E (see [1])
+dis = 1;
+if dis, disp('Initialisation...'); end
 
-All codes is copyrighted by its own author. The codes from me are licensed GNU/LGPL v2.
-Run `main.m` to get the demo. You can change the input file by your own data. 
+% Cấu hình ngẫu nhiên để lặp lại được kết quả
+rng('default');
+rng(1,'twister');
 
-================================
-To use your own audio files, you need to modify the main.m script. Navigate to lines 60-71 and replace the provided .wav filenames with your own.
+% Tham số chung
+M = 2;            % số microphone
+u = 0.5;          % cardioid control
+N = 3;            % số nguồn để tạo mixture khi evalu=1
+th = 1;
+stopthresholdini = 3000;
+TC1 = 0.1;
+TC2 = 0.03;
+numlags = 1;
+thepow = 20;
+minpow = 30;
 
-Original Code:
+evalu = 1; % chạy chế độ tách + đánh giá
+```
 
-Matlab
+**Chức năng chính:**  
+- **Tham số chung:** Đặt số microphone (`M=2`), số nguồn (`N=3`) và ngưỡng dừng (`stopthresholdini`, `th`).  
+- **evalu = 1:** Bật chế độ tạo hỗn hợp ngẫu nhiên và đánh giá hiệu suất.  
+- **Tham số STFT:** Xác định kích thước FFT (`NFFT=2048`), cửa sổ (`WINDOW` – mặc định là Hamming) và độ chồng lấn (`NOVERLAP`) để phân tích phổ.
 
-if evalu %%%read source signals signals
+---
 
-    s=[];
-	
-    [s(:,1),fs]=audioread('ukma.wav');
-	
-    [s(:,2),fs]=audioread('frma.wav');
-	
-    [s(:,3),fs]=audioread('itfe.wav');
-	
-    [s(:,4),fs]=audioread('cnfe.wav');
-	
-    [s(:,5),fs]=audioread('rufe.wav');
-	
-    [s(:,6),fs]=audioread('gema.wav');
-	
-    [s(:,7),fs]=audioread('nlma.wav');
-	
-    [s(:,8),fs]=audioread('jpfe.wav');
-	
-    [s(:,9),fs]=audioread('brfe.wav');
-	
-    [s(:,10),fs]=audioread('esma.wav');
-	
-    [s(:,11),fs]=audioread('dkma.wav');
-	
-    [s(:,12),fs]=audioread('ukfe.wav');
-	
-Instruction:
+## 🎼 2. Tải / Tạo Dữ liệu Hỗn hợp (Load / Create Sources and Stereo Mix)
 
-Replace the audioread calls with your own .wav files. Ensure they are in the same directory as the script.
+Phần này tạo ra hỗn hợp âm thanh (stereo mix) `X` từ các nguồn âm thanh mẫu, mô phỏng quá trình thu âm thực tế.
 
-===============================
+```matlab
+%% === Load / create sources and stereo mix ===
+if evalu
+    % Load 12 source files (A-L)
+    s = [];
+    [s(:,1),fs]  = audioread('ukma.wav'); % A
+    [s(:,2),~]   = audioread('frma.wav'); % B
+    ... (tải thêm 10 file nữa)
+```
 
-Cải tiến Phương án 1 (branch ss/no1):
+**Chức năng chính:**  
+- **Tạo hỗn hợp:** Chọn ngẫu nhiên các nguồn và hướng, sau đó sử dụng ma trận hỗn hợp `A` (tính bằng `calcA`) để tạo ra hỗn hợp stereo `X`.  
+- **Ngưỡng năng lượng:** Ước tính ngưỡng năng lượng (`thE`, `minpower`) để xác định tín hiệu giọng nói đáng tin cậy.  
+- **Mặt nạ lý tưởng:** Tính toán mặt nạ lý tưởng (`imaskL`, `imaskR`) để đánh giá khi `evalu=1`.
 
-- Đọc tín hiệu mix từ micro (stereomix.wav) → tính spectrogram.
+---
 
-- Áp dụng mask (e1L, e1R, e2L, e2R, imaskL, imaskR) để tách tín hiệu người nói.
+## 🔁 3. Vòng lặp Tách nguồn Chính (Main Separation Loop)
 
-- Tái tạo lại tín hiệu thời gian bằng invspecgram.
+Đây là phần lõi của thuật toán, nơi quá trình tách nguồn lặp đi lặp lại.
 
-- Tính các chỉ số:
+- **Làm trắng PCA (whitening):** Chuẩn bị dữ liệu để ICA hoạt động ổn định hơn.  
+- **ICA:** Sử dụng `icaML` để tìm các thành phần độc lập.  
+- **Tạo / Áp dụng Mặt nạ:** Dùng `applymasks` để tách tín hiệu.  
+- **Tiêu chí dừng:**  
+  - `enerstop`: Dừng khi năng lượng quá thấp.  
+  - `oneortwo_cond`: Dừng khi tín hiệu đạt điều kiện hai tai.
 
-    PLEL, PREL, PLNR, PRNR – công suất tương đối.
+---
 
-    SNRL, SNRR – tỉ số tín hiệu trên nhiễu.
+## 📊 4. Hậu xử lý và Đánh giá (Post-processing and Evaluation)
 
-    SNRiL/SNRiR – SNR so với tín hiệu gốc.
+Sau khi tách xong, chương trình tính toán hiệu suất:
 
-    SNRoL/SNRoR – SNR sau tách.
+- **comparemasks:** So sánh mặt nạ đầu ra với mặt nạ lý tưởng.  
+- **calcELNR:** Tính các chỉ số SNR, năng lượng và cải thiện chất lượng tách.  
+- **Lưu trữ:** Kết quả được lưu thành `.mat`.
 
-- Lưu các file WAV: mic.wav, speaker1.wav, speaker2.wav, separated.wav.
+---
 
-- Vẽ biểu đồ waveform (biên độ - thời gian) và spectrogram cho file đã tách.
+## ⚙️ Các File Chức năng Bắt buộc (Required .m Files)
+
+| File | Mô tả |
+|------|-------|
+| `calcA.m` | Tính ma trận hỗn hợp A dựa trên góc và mô hình microphone |
+| `icaML.m` | Thực hiện ICA (Independent Component Analysis) |
+| `idealmask.m` | Tính mặt nạ lý tưởng (ideal TF mask) |
+| `colorimask.m` | Hiển thị mặt nạ lý tưởng có màu |
+| `applymasks.m` | Áp dụng mặt nạ để tách tín hiệu |
+| `oneortwo_cond.m` | Tính tiêu chí dừng hai tai |
+| `enerstop.m` | Tính tiêu chí dừng theo năng lượng |
+| `getfinalmask.m` | Tạo mặt nạ cuối cùng |
+| `multisigcheck.m` | Hợp nhất các tín hiệu trùng |
+| `nosigcorr.m` | Loại bỏ tín hiệu tương quan cao |
+| `comparemask.m` | So sánh mặt nạ đầu ra và lý tưởng |
+| `calcELNR.m` | Tính toán chỉ số cải thiện SNR |
+
+---
+
+**Tác giả:** Bộ môn Xử lý Tín hiệu – PTIT  
+**Ngôn ngữ:** MATLAB 2016+  
+**Bản quyền:** Học viện Công nghệ Bưu chính Viễn thông (PTIT)
