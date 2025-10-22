@@ -1,20 +1,17 @@
 %% main.m
-% Ch??ng trình chính: Underdetermined source separation
-% T??ng thích MATLAB 2016
+% Ch??ng trï¿½nh chï¿½nh: Underdetermined source separation
 clear all; close all; clc;
 format compact;
 
 dis = 1;
 if dis, disp('Initialisation...'); end
 
-% C?u hình ng?u nhiên ?? l?p l?i ???c k?t qu?
 rng('default');
 rng(1,'twister');
 
-% Tham s? chung
-M = 2;            % s? microphone
-u = 0.5;          % cardioid control
-N = 3;            % s? ngu?n ?? t?o mixture khi evalu=1
+M = 1;
+u = 0.5;
+N = 2;
 th = 1;
 stopthresholdini = 3000;
 TC1 = 0.1;
@@ -22,10 +19,8 @@ TC2 = 0.03;
 numlags = 1;
 thepow = 20;
 minpow = 30;
+evalu = 1;
 
-evalu = 1; % ch?y ch? ?? tách + ?ánh giá
-
-% STFT params
 winnumber = 3;
 NFFT = 2048;
 k = 4;
@@ -42,24 +37,43 @@ end
 noverlapfactor = 0.75;
 NOVERLAP = length(WINDOW)*noverlapfactor;
 
+%% === T?o th? m?c l?u k?t qu? ===
+result_folder = 'result';
+if ~exist(result_folder, 'dir')
+    mkdir(result_folder);
+end
+
 %% === Load / create sources and stereo mix ===
 if evalu
-    s = [];
-    [s(:,1),fs]  = audioread('ukma.wav'); % A
-    [s(:,2),~]   = audioread('frma.wav'); % B
-    [s(:,3),~]   = audioread('itfe.wav'); % C
-    [s(:,4),~]   = audioread('cnfe.wav'); % D
-    [s(:,5),~]   = audioread('rufe.wav'); % E
-    [s(:,6),~]   = audioread('gema.wav'); % F
-    [s(:,7),~]   = audioread('nlma.wav'); % G
-    [s(:,8),~]   = audioread('jpfe.wav'); % H
-    [s(:,9),~]   = audioread('brfe.wav'); % I
-    [s(:,10),~]  = audioread('esma.wav'); % J
-    [s(:,11),~]  = audioread('dkma.wav'); % K
-    [s(:,12),~]  = audioread('ukfe.wav'); % L
-    labelvec = {'A','B','C','D','E','F','G','H','I','J','K','L'};
+    file_list = {
+        'sp1.wav', 
+        'sp2.wav',
+        'sp3.wav',
+        'sp4.wav'
+    };
 
-    % Random pick N sources from pool
+    max_len = 0;
+    for i = 1:length(file_list)
+        info = audioinfo(file_list{i});
+        if info.TotalSamples > max_len
+            max_len = info.TotalSamples;
+        end
+    end
+
+    s = zeros(max_len, length(file_list));
+    fs = 0;
+    for i = 1:length(file_list)
+        if i == 1
+            [audio_data, fs_temp] = audioread(file_list{i});
+            fs = fs_temp;
+        else
+            [audio_data, ~] = audioread(file_list{i});
+        end
+        s(1:length(audio_data), i) = audio_data;
+    end
+
+    labelvec = {'A','B','C','D'};
+
     NS = 1:size(s,2);
     Ns = zeros(1,N);
     for i=1:N
@@ -70,7 +84,6 @@ if evalu
     N = length(Ns);
     S = s(:,Ns)';
 
-    % Random directions
     Npos = max(N,7);
     all_theta = linspace(0,pi,Npos);
     theta = zeros(1,N);
@@ -80,33 +93,35 @@ if evalu
         all_theta(rnd) = [];
     end
 
-    % Mixing with two cardioid microphones
-    A = calcA(theta,u);   % b?n ph?i có file calcA.m
-    X = A * S;            % 2 x T
-    audiowrite('stereomix.wav', X', fs);
+    A = calcA(theta,u);
+    X = A * S;
+    audiowrite(fullfile(result_folder,'stereomix.wav'), X', fs);
 else
-    if ~exist('stereomix.wav','file')
-        error('Không tìm th?y stereo mix: stereomix.wav');
+    if ~exist(fullfile(result_folder,'stereomix.wav'),'file')
+        error('Khï¿½ng tï¿½m th?y stereo mix: result/stereomix.wav');
     end
-    [X,fs] = audioread('stereomix.wav');
+    [X,fs] = audioread(fullfile(result_folder,'stereomix.wav'));
     X = X';
 end
 
-% estimate energy thresholds
 powpow = 10*log10((sum(X(1,:).^2)+sum(X(2,:).^2))/(2*size(X,2)));
 thE = powpow - thepow;
 minpower = powpow - minpow;
 
-% Create ideal masks if evalu
 if evalu
     for i=1:N
         vd = zeros(1,N); vd(i)=1; ivd=(vd-1)*(-1);
         [imaskL{i},imaskR{i},SNRiL(i),SNRiR(i)] = idealmask(A*diag(vd)*S, A*diag(ivd)*S, fs, NFFT, WINDOW, NOVERLAP);
     end
     [cmL,cmR] = colorimask(imaskL,imaskR,fs);
+
+    %% === L?u hï¿½nh th? cï¿½ng (b? % n?u mu?n l?u) ===
+    % figure; imshow(cmL); title('Color Mask Left');
+    % exportgraphics(gcf, fullfile(result_folder, 'color_mask_left.png'), 'Resolution', 300);
+    % figure; imshow(cmR); title('Color Mask Right');
+    % exportgraphics(gcf, fullfile(result_folder, 'color_mask_right.png'), 'Resolution', 300);
 end
 
-% buffers
 x = {X};
 mask = {[]};
 fmask = {[]};
@@ -115,7 +130,6 @@ delete_me_again = sg(X(1,:),NFFT,fs,WINDOW,NOVERLAP);
 lastremmask = zeros(size(delete_me_again));
 clear delete_me_again
 
-% counters
 countmax = 30;
 finalcnt = 1;
 enercnt = 1;
@@ -130,44 +144,31 @@ while cnt < countmax
     sx = size(x,2);
     cnt = cnt + 1;
     stopthreshold = stopthresholdini;
-
     xbuffer = {};
     maskbuffer = {};
 
     for n = 1:sx
-        % --- PCA whitening (prewhiten) to improve ICA stability ---
-        % x{n} expected size 2 x T
         Xn = x{n};
-        % remove mean
-        Xm = Xn - repmat(mean(Xn,2), 1, size(Xn,2));
-        % covariance
+        Xm = Xn - repmat(mean(Xn, 2), 1, size(Xn, 2));
         C = cov(Xm.');
         [E,D] = eig(C);
-        % avoid tiny eigenvalues
         d = diag(D);
         d(d<=0) = eps;
-        % whitening matrix
         Wwhite = inv(sqrt(D)) * E';
-        Xwhite = Wwhite * Xm; % 2 x T whitened
+        Xwhite = Wwhite * Xm;
 
-        % Pass whitened data to ICA
         try
-            [y{n}, Aest] = icaML(Xwhite); % b?n c?n file icaML.m
-            % y{n} returned is 2 x T
-            % Transform back to original space if needed (not necessary for masks)
+            [y{n}, Aest] = icaML(Xwhite);
         catch ME
             warning('ICA failed, using unwhitened data: %s', ME.message);
             [y{n}, Aest] = icaML(Xn);
         end
 
-        % normalization
         for m=1:2
             den = 10*sqrt(var(y{n}(m,:))) + eps;
             y{n}(m,:) = y{n}(m,:) / den;
         end
 
-        % estimate mask
-        if dis, disp('Finding mask...'); end
         if evalu
             [newX{1}(1,:),newX{1}(2,:),newX{2}(1,:),newX{2}(2,:), msk{1}, msk{2}] = ...
                 applymasks(X(1,:)', X(2,:)', y{n}(1,:)', y{n}(2,:)', mask{n}, fs, th, NFFT, WINDOW, NOVERLAP, cmR, cmL);
@@ -176,32 +177,33 @@ while cnt < countmax
                 applymasks(X(1,:)', X(2,:)', y{n}(1,:)', y{n}(2,:)', mask{n}, fs, th, NFFT, WINDOW, NOVERLAP);
         end
 
-        % binaural stopping criteria
         for m=1:2
             condi = oneortwo_cond(newX{m}(1,:), newX{m}(2,:), fs);
             est = enerstop(newX{m}(1,:), newX{m}(2,:), thE, minpower);
             if est == 2
                 if dis, disp('Not a speech signal - too low energy'); end
             elseif est == 1
-                if dis, disp('Not a good quality speech signal'); end
                 [L,R,enermask{enercnt}] = getfinalmask(X(1,:)', X(2,:)', y{n}(1,:)', y{n}(2,:)', mask{n}, fs, th, m, NFFT, WINDOW, NOVERLAP, 1);
-                stestr = sprintf('enerstereo%d.wav', enercnt);
-                if dis, disp(stestr); end
-                audiowrite([stestr], [L, R], fs);
+                stestr = fullfile(result_folder, sprintf('enerstereo%d.wav', enercnt));
+                audiowrite(stestr, [L, R], fs);
                 enercnt = enercnt + 1;
+
+                %% === L?u hï¿½nh th? cï¿½ng n?u hï¿½m cï¿½ hi?n th? hï¿½nh ===
+                % exportgraphics(gcf, fullfile(result_folder, sprintf('enermask_%d.png', enercnt)), 'Resolution', 300);
+
             elseif condi > stopthreshold
-                if dis, disp('Save as final signal...'); end
                 [L,R,fmask{finalcnt}] = getfinalmask(X(1,:)', X(2,:)', y{n}(1,:)', y{n}(2,:)', mask{n}, fs, 1, m, NFFT, WINDOW, NOVERLAP, 0);
-                stestr = sprintf('finalstereo%d.wav', finalcnt);
-                if dis, disp(stestr); end
-                audiowrite([stestr], [L, R], fs);
+                stestr = fullfile(result_folder, sprintf('finalstereo%d.wav', finalcnt));
+                audiowrite(stestr, [L, R], fs);
                 finalcnt = finalcnt + 1;
+
+                % exportgraphics(gcf, fullfile(result_folder, sprintf('finalmask_%d.png', finalcnt)), 'Resolution', 300);
             else
                 xbuffer = {xbuffer{:}, newX{m}};
                 maskbuffer = {maskbuffer{:}, msk{m}};
             end
         end
-    end % for n
+    end
 
     x = xbuffer;
     mask = maskbuffer;
@@ -209,7 +211,6 @@ while cnt < countmax
     if isempty(xbuffer)
         if dis, disp('Stopping separation algorithm'); end
 
-        % merge duplicates and check correlations
         if length(fmask) ~= lastfmasklength
             fmask = multisigcheck(fmask, X(1,:)', X(2,:)', TC1, fs, NFFT, WINDOW, NOVERLAP, numlags);
             lastfmasklength = length(fmask);
@@ -217,17 +218,16 @@ while cnt < countmax
         end
 
         if ~isempty(enermask{1})
-            fmask = nosigcorr(fmask, enermask, X(1,:)', X(2,:)', TC2, fs, NFFT, WINDOW, NOVERLAP, numlags);
+            fmask = nosigcorr(fmask, enermask, X(1,:)', X(2,:)', TC2, fs, NFFT, WINDOW, NOVERLAP, numlags, result_folder);
         end
 
         enercnt = 1;
         enermask = {[]};
 
         if isempty(fmask{1})
-            if dis, disp('No signals segregated. Stopping separation procedure.'); end
+            if dis, disp('No signals segregated.'); end
             exitcnt = 4; break;
         else
-            if dis, disp('Finding remaining mask...'); end
             if evalu
                 [L,R,remainingmask] = getremainingmask(X(1,:)', X(2,:)', fmask, fs, NFFT, WINDOW, NOVERLAP, cmL, cmR);
             else
@@ -236,34 +236,18 @@ while cnt < countmax
         end
 
         if isequal(lastremmask, remainingmask)
-            if dis, disp('No changes. Stopping separation procedure.'); end
-            exitcnt = 4;
-            audiowrite('remaining.wav', [L,R], fs);
+            audiowrite(fullfile(result_folder, 'remaining.wav'), [L,R], fs);
             break;
         else
             lastremmask = remainingmask;
         end
 
-        audiowrite('remaining.wav', [L,R], fs);
-        condi = oneortwo_cond(newX{m}(1,:), newX{m}(2,:), fs);
-        if enerstop(L', R', thE, minpower, fs) > 0
-            if dis, disp('Not a speech signal'); end
-            break;
-        elseif condi > stopthreshold
-            stestr = sprintf('finalstereo%d.wav', finalcnt);
-            audiowrite(stestr, [L,R], fs);
-            if dis, disp(['save remaining as ' stestr]); end
-            fmask{finalcnt} = remainingmask;
-            break;
-        else
-            mask = {remainingmask};
-            x = {[L'; R']};
-        end
+        audiowrite(fullfile(result_folder, 'remaining.wav'), [L,R], fs);
 
         if exitcnt >= 4, break; end
         exitcnt = exitcnt + 1;
     end
-end % while
+end
 
 if isempty(fmask)
     flag = 1; mEL=0; mNR=0; mSNRi=0; mSNRo=0; mSNRx=0;
@@ -272,20 +256,23 @@ else
         fmask = multisigcheck(fmask, X(1,:)', X(2,:)', TC1, fs, NFFT, WINDOW, NOVERLAP, numlags);
     end
     if ~isempty(enermask{1})
-        fmask = nosigcorr(fmask, enermask, X(1,:)', X(2,:)', TC2, fs, NFFT, WINDOW, NOVERLAP, numlags);
+        fmask = nosigcorr(fmask, enermask, X(1,:)', X(2,:)', TC2, fs, NFFT, WINDOW, NOVERLAP, numlags, result_folder);
+
     end
 end
 
 if dis, disp('Separation done.'); end
 
-%% === Evaluation & save results (n?u evalu) ===
+%% === Evaluation ===
 if evalu
-    if dis, disp('Evaluation of outputs'); end
-
-    clear x mask
     [valL,valR,e1L,e1R,e2L,e2R,q,lbl,cflag] = comparemasks(fmask, imaskL, imaskR, labelvec(Ns), fs, length(s));
 
-    % standalone signals (ground truth)
+    %% === L?u hï¿½nh th? cï¿½ng khi so sï¿½nh m?t n? ===
+    % figure; imagesc(valL); title('Left Mask Comparison'); colorbar;
+    % exportgraphics(gcf, fullfile(result_folder, 'compare_mask_left.png'), 'Resolution', 300);
+    % figure; imagesc(valR); title('Right Mask Comparison'); colorbar;
+    % exportgraphics(gcf, fullfile(result_folder, 'compare_mask_right.png'), 'Resolution', 300);
+
     for i=1:N
         Xalone(:,:,i) = A(:,i) * S(i,:);
     end
@@ -293,7 +280,7 @@ if evalu
     [PLEL,PREL,PLNR,PRNR,SNRL,SNRR,SNRiLi,SNRiRi,SNRxL,SNRxR] = ...
         calcELNR(e1L,e1R,e2L,e2R,imaskL,imaskR,q,NFFT,WINDOW,NOVERLAP,Xalone,lbl);
 
-    datafile = 'data.mat';
+    datafile = fullfile(result_folder, 'data.mat');
     save(datafile, 'PLEL','PREL','PLNR','PRNR','SNRL','SNRR','SNRiL','SNRiR','lbl','th','stopthresholdini','TC1','TC2','thepow','minpow','NFFT','winnumber','k','NOVERLAP','Ns','theta');
 
     mEL = 100*(mean(PLEL)+mean(PREL))/2;
@@ -309,7 +296,7 @@ if evalu
     end
 
     mSNR = mSNRo - mSNRi;
-    save mydata mEL mNR mSNRi mSNRo mSNR mSNRx flag
+    save(fullfile(result_folder,'mydata.mat'), 'mEL','mNR','mSNRi','mSNRo','mSNR','mSNRx','flag');
 end
 
 if dis, disp('Done'); end

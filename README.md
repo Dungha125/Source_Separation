@@ -1,4 +1,4 @@
-# 🎧 Chương trình Tách Nguồn Âm Thanh Thiếu Xác Định (Underdetermined Source Separation)
+# Chương trình Tách Nguồn Âm Thanh Thiếu Xác Định (Underdetermined Source Separation)
 
 Đây là một chương trình **MATLAB** triển khai thuật toán **tách nguồn âm thanh** (*audio source separation*) trong **điều kiện thiếu xác định**, nghĩa là **số lượng nguồn âm thanh (sources)** lớn hơn **số lượng microphone**.
 
@@ -8,7 +8,7 @@ Thuật toán hoạt động theo **phương pháp lặp lại (iterative)**, s�
 
 ---
 
-## 🧩 1. Khởi tạo và Cấu hình (Initialization)
+## 1. Khởi tạo và Cấu hình (Initialization)
 
 Phần này thiết lập các tham số cơ bản và cấu hình cho STFT.
 
@@ -48,7 +48,7 @@ evalu = 1; % chạy chế độ tách + đánh giá
 
 ---
 
-## 🎼 2. Tải / Tạo Dữ liệu Hỗn hợp (Load / Create Sources and Stereo Mix)
+## 2. Tải / Tạo Dữ liệu Hỗn hợp (Load / Create Sources and Stereo Mix)
 
 Phần này tạo ra hỗn hợp âm thanh (stereo mix) `X` từ các nguồn âm thanh mẫu, mô phỏng quá trình thu âm thực tế.
 
@@ -69,7 +69,7 @@ if evalu
 
 ---
 
-## 🔁 3. Vòng lặp Tách nguồn Chính (Main Separation Loop)
+## 3. Vòng lặp Tách nguồn Chính (Main Separation Loop)
 
 Đây là phần lõi của thuật toán, nơi quá trình tách nguồn lặp đi lặp lại.
 
@@ -82,7 +82,7 @@ if evalu
 
 ---
 
-## 📊 4. Hậu xử lý và Đánh giá (Post-processing and Evaluation)
+## 4. Hậu xử lý và Đánh giá (Post-processing and Evaluation)
 
 Sau khi tách xong, chương trình tính toán hiệu suất:
 
@@ -92,7 +92,7 @@ Sau khi tách xong, chương trình tính toán hiệu suất:
 
 ---
 
-## ⚙️ Các File Chức năng Bắt buộc (Required .m Files)
+## Các File Chức năng Bắt buộc (Required .m Files)
 
 | File | Mô tả |
 |------|-------|
@@ -109,8 +109,74 @@ Sau khi tách xong, chương trình tính toán hiệu suất:
 | `comparemask.m` | So sánh mặt nạ đầu ra và lý tưởng |
 | `calcELNR.m` | Tính toán chỉ số cải thiện SNR |
 
+
+# 🧠 Báo cáo cải tiến và giải thích các Figure trong chương trình tách tín hiệu (22/10/2025)
+
+## I. Các cải tiến trong phiên bản hiện tại
+
+Dưới đây là các thay đổi và tối ưu đã được thực hiện so với phiên bản gốc:
+
+| Nhóm cải tiến | Mô tả chi tiết | Mục đích |
+|----------------|----------------|-----------|
+| **1️⃣ Chuẩn hóa dữ liệu đầu vào (`Xn`, `Xm`)** | Thêm kiểm tra kích thước ma trận trước khi trừ trung bình, xử lý tự động theo chiều hàng/cột. | Tránh lỗi “Matrix dimensions must agree”. |
+| **2️⃣ Sửa lỗi trong `nosigcorr.m`** | - Kiểm tra và đồng bộ độ dài tín hiệu.<br>- Đảm bảo chỉ lấy 2 kênh trái/phải nếu có (`s(:,1)` và `s(:,2)`). | Giải quyết lỗi “Subscripted assignment dimension mismatch”. |
+| **3️⃣ Kiểm tra file âm thanh trước khi đọc** | Thêm `exist(str, 'file')` trước `audioread`. Nếu không tồn tại thì bỏ qua hoặc cảnh báo. | Tránh lỗi “filename specified was not found”. |
+| **4️⃣ Tự động tạo thư mục kết quả (`result_folder`)** | Tự động `mkdir(result_folder)` nếu chưa có. | Đảm bảo lưu kết quả an toàn. |
+| **5️⃣ Lưu toàn bộ Figure ra file ảnh (PNG)** | Sau khi vẽ xong, tự động lưu bằng:<br>`saveas(gcf, fullfile(result_folder, sprintf('figure%d.png', figIndex)));` | Giúp xem lại kết quả mà không cần giữ session MATLAB. |
+| **6️⃣ Dọn dẹp bộ nhớ** | Sử dụng `close all` sau khi lưu figure. | Giảm chiếm dụng RAM và tránh lỗi khi chạy nhiều lần. |
+
 ---
 
-**Tác giả:** Bộ môn Xử lý Tín hiệu – PTIT  
-**Ngôn ngữ:** MATLAB 2016+  
-**Bản quyền:** Học viện Công nghệ Bưu chính Viễn thông (PTIT)
+## II. Giải thích Figure 1 và Figure 2
+
+Hai hình này là **biểu đồ phổ tần (Spectrogram)** thể hiện năng lượng tín hiệu theo **thời gian – tần số**, dùng để quan sát hiệu quả tách nguồn âm.
+
+---
+
+### 🎧 Figure 1 – Phổ năng lượng của tín hiệu gốc (Original Spectrogram)
+
+#### 🔹 Nội dung hiển thị:
+- **Trục hoành (X-axis)**: Thời gian (giây)  
+- **Trục tung (Y-axis)**: Tần số (Hz)  
+- **Màu sắc (Color)**: Cường độ năng lượng (biên độ) – càng sáng, năng lượng càng mạnh.
+
+#### 🔹 Ý nghĩa:
+- Biểu diễn tín hiệu **hỗn hợp đầu vào**, chứa cả hai (hoặc nhiều) nguồn âm trộn lẫn.
+- Các **vệt năng lượng chồng lấn** cho thấy vùng giao thoa của các nguồn.
+- Giúp ta hình dung **mức độ trộn** trước khi áp dụng thuật toán tách.
+
+#### 🔹 Mục tiêu:
+Dùng để **so sánh trực quan** với Figure 2 – nhằm đánh giá hiệu quả tách tín hiệu.
+
+---
+
+### 🎚️ Figure 2 – Phổ năng lượng sau tách (Separated Spectrogram)
+
+#### 🔹 Nội dung hiển thị:
+- Cấu trúc trục tương tự Figure 1.  
+- Hiển thị dữ liệu sau khi áp dụng **thuật toán tách nguồn âm** (masking, ICA, hoặc năng lượng tương quan).
+
+#### 🔹 Ý nghĩa:
+- Thể hiện **kết quả tách**: năng lượng của từng nguồn âm được tách riêng rõ ràng hơn.
+- Vùng tần số chồng lấn đã giảm, phổ năng lượng gọn và rõ ràng hơn.
+- Nếu thuật toán hiệu quả, phổ của mỗi nguồn sẽ **ít nhiễu, rõ biên độ đặc trưng**.
+
+#### 🔹 Mục tiêu:
+Giúp **đánh giá trực quan hiệu quả của thuật toán** bằng cách so sánh với Figure 1.
+
+---
+
+## III. Cách lưu Figure thủ công (nếu muốn)
+
+Nếu bạn muốn lưu thủ công thay vì tự động:
+
+```matlab
+figure(1);
+% ... code vẽ ...
+title('Spectrogram of Original Signal');
+saveas(gcf, 'result/figure1_original.png');
+
+figure(2);
+% ... code vẽ ...
+title('Spectrogram of Separated Signal');
+saveas(gcf, 'result/figure2_separated.png');
