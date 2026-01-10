@@ -109,10 +109,10 @@ disp(['  + Uoc tinh huong 1: ' num2str(theta1_deg, '%.1f') ' do']);
 disp(['  + Uoc tinh huong 2: ' num2str(theta2_deg, '%.1f') ' do']);
 disp('');
 
-%% 5. BUOC 3: TAO SPATIAL WEIGHT KET HOP TAT CA BEAMFORMER
-disp('BUOC 5: TAO SPATIAL WEIGHT (KET HOP TAT CA BEAMFORMER)');
+%% 5. BUOC 3: TAO SPATIAL WEIGHT KET HOP BEAMFORMER
+disp('BUOC 5: TAO SPATIAL WEIGHT (KET HOP BEAMFORMER)');
 disp('-----------------------------------------------------------');
-disp('  => Long ghep: DAS + GSC + MVDR + LCMV + Differential');
+disp('  => Long ghep: DAS + GSC + Differential');
 disp('');
 
 % 5.1. Delay-and-Sum Beamformer weight
@@ -161,52 +161,8 @@ catch ME
     disp(['      ! GSC loi: ' ME.message]);
 end
 
-% 5.3. MVDR Beamformer weight
-disp('  5.3. MVDR Beamforming...');
-try
-    y1_mvdr = mvdr_beamformer(X_bp, fs_target, theta1_deg);
-    y2_mvdr = mvdr_beamformer(X_bp, fs_target, theta2_deg);
-    
-    [S1_mvdr_tf, ~, ~] = spectrogram(y1_mvdr, WINDOW, NOVERLAP, NFFT, fs_target);
-    [S2_mvdr_tf, ~, ~] = spectrogram(y2_mvdr, WINDOW, NOVERLAP, NFFT, fs_target);
-    
-    P1_mvdr = abs(S1_mvdr_tf).^2;
-    P2_mvdr = abs(S2_mvdr_tf).^2;
-    P_total_mvdr = P1_mvdr + P2_mvdr + eps;
-    
-    weight_mvdr_1 = P1_mvdr ./ P_total_mvdr;
-    weight_mvdr_2 = P2_mvdr ./ P_total_mvdr;
-    disp('      + MVDR: OK');
-catch ME
-    weight_mvdr_1 = 0.5 * ones(num_freq, num_frame);
-    weight_mvdr_2 = 0.5 * ones(num_freq, num_frame);
-    disp(['      ! MVDR loi: ' ME.message]);
-end
-
-% 5.4. LCMV Beamformer weight
-disp('  5.4. LCMV Beamforming...');
-try
-    y1_lcmv = lcmv_beamformer(X_bp, fs_target, theta1_deg, theta2_deg);
-    y2_lcmv = lcmv_beamformer(X_bp, fs_target, theta2_deg, theta1_deg);
-    
-    [S1_lcmv_tf, ~, ~] = spectrogram(y1_lcmv, WINDOW, NOVERLAP, NFFT, fs_target);
-    [S2_lcmv_tf, ~, ~] = spectrogram(y2_lcmv, WINDOW, NOVERLAP, NFFT, fs_target);
-    
-    P1_lcmv = abs(S1_lcmv_tf).^2;
-    P2_lcmv = abs(S2_lcmv_tf).^2;
-    P_total_lcmv = P1_lcmv + P2_lcmv + eps;
-    
-    weight_lcmv_1 = P1_lcmv ./ P_total_lcmv;
-    weight_lcmv_2 = P2_lcmv ./ P_total_lcmv;
-    disp('      + LCMV: OK');
-catch ME
-    weight_lcmv_1 = 0.5 * ones(num_freq, num_frame);
-    weight_lcmv_2 = 0.5 * ones(num_freq, num_frame);
-    disp(['      ! LCMV loi: ' ME.message]);
-end
-
-% 5.5. Differential Microphone Array weight
-disp('  5.5. Differential Array...');
+% 5.3. Differential Microphone Array weight
+disp('  5.3. Differential Array...');
 try
     y_diff = differential_microphone_array(X_bp, 1);
     y_diff_inv = -y_diff;
@@ -227,31 +183,26 @@ catch ME
     disp(['      ! Differential loi: ' ME.message]);
 end
 
-% KET HOP TAT CA CAC BEAMFORMER WEIGHT (LONG GHEP)
+% KET HOP CAC BEAMFORMER WEIGHT (LONG GHEP)
 disp('');
-disp('  => Ket hop tat ca beamformer weights:');
+disp('  => Ket hop beamformer weights:');
 
 % He so cho tung beamformer (tong = 1.0)
-w_das = 0.25;
-w_gsc = 0.25;
-w_mvdr = 0.20;
-w_lcmv = 0.20;
-w_diff = 0.10;
+w_das = 0.40;  % Delay-and-Sum
+w_gsc = 0.40;  % GSC
+w_diff = 0.20; % Differential
 
-spatial_weight_1 = w_das * weight_das_1 + w_gsc * weight_gsc_1 + w_mvdr * weight_mvdr_1 + ...
-                   w_lcmv * weight_lcmv_1 + w_diff * weight_diff_1;
+spatial_weight_1 = w_das * weight_das_1 + w_gsc * weight_gsc_1 + w_diff * weight_diff_1;
                    
-spatial_weight_2 = w_das * weight_das_2 + w_gsc * weight_gsc_2 + w_mvdr * weight_mvdr_2 + ...
-                   w_lcmv * weight_lcmv_2 + w_diff * weight_diff_2;
+spatial_weight_2 = w_das * weight_das_2 + w_gsc * weight_gsc_2 + w_diff * weight_diff_2;
 
 % Normalize
 spatial_sum = spatial_weight_1 + spatial_weight_2 + eps;
 spatial_weight_1 = spatial_weight_1 ./ spatial_sum;
 spatial_weight_2 = spatial_weight_2 ./ spatial_sum;
 
-disp(['      DAS=' num2str(w_das) ' + GSC=' num2str(w_gsc) ' + MVDR=' num2str(w_mvdr) ...
-      ' + LCMV=' num2str(w_lcmv) ' + Diff=' num2str(w_diff)]);
-disp('  + Da ket hop tat ca beamformer weights');
+disp(['      DAS=' num2str(w_das) ' + GSC=' num2str(w_gsc) ' + Diff=' num2str(w_diff)]);
+disp('  + Da ket hop beamformer weights');
 disp('');
 
 %% 6. BUOC 4: TAO ICA-BASED MASK
